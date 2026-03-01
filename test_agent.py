@@ -11,11 +11,11 @@ async def main():
     oai_client = AsyncOpenAI()
 
     MODEL_NAME = "gpt-5.2"
-    ENV_NAME = "GeneralReasoning/wikigame"
+    ENV_NAME = "GeneralReasoning/WikiGame"
     SPLIT = "train"
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-    environment = or_client.environments.get(name=ENV_NAME, base_url="http://localhost:8080")
+    environment = or_client.environments.get(name=ENV_NAME)
     tasks = await environment.list_tasks(split=SPLIT)
     tools = await environment.list_tools(format="openai")
 

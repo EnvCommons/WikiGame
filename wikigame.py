@@ -1,13 +1,18 @@
 import json
 import re
+import time
 from difflib import get_close_matches
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import unquote
 
+import logging
+
 import httpx
 from pydantic import BaseModel
+
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 from openreward.environments import Environment, JSONObject, TextBlock, ToolOutput, tool
 
@@ -18,8 +23,10 @@ from openreward.environments import Environment, JSONObject, TextBlock, ToolOutp
 
 import os
 if os.path.exists("/orwd_data"):
+    ENV_PATH = Path("/orwd_data")
     _TASKS_FILE = Path("/orwd_data/tasks.json")
 else:
+    ENV_PATH = Path(__file__).parent
     _TASKS_FILE = Path(__file__).parent / "tasks.json"
 
 def _load_tasks() -> Dict[str, List[JSONObject]]:
@@ -29,6 +36,13 @@ def _load_tasks() -> Dict[str, List[JSONObject]]:
 WIKI_TASKS = _load_tasks()
 
 WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
+
+# ---------------------------------------------------------------------------
+# Debug caching — set to True to cache fetched pages locally in pages/
+# ---------------------------------------------------------------------------
+DEBUG = True
+_PAGES_DIR = ENV_PATH / "pages"
+
 
 # Sections to strip from the end of articles (case-insensitive check)
 _STOP_SECTIONS = {"see also", "references", "external links", "further reading", "notes", "bibliography", "sources"}
@@ -220,6 +234,53 @@ def _parse_wiki_html(html: str) -> Tuple[str, Dict[str, str]]:
 
 
 # ---------------------------------------------------------------------------
+# Debug page cache helpers
+# ---------------------------------------------------------------------------
+
+def _sanitize_for_filename(title: str) -> str:
+    """Convert a Wikipedia title into a safe filename (without extension)."""
+    s = title.strip().lower().replace(" ", "_")
+    s = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', s)
+    s = re.sub(r'_+', '_', s)
+    s = s.strip('_')
+    return s[:200] if s else '_empty_'
+
+
+def _read_cache(title: str) -> Optional[Tuple[str, str, Dict[str, str]]]:
+    """Try to read a cached page. Returns (resolved_title, markdown, links) or None."""
+    cache_path = _PAGES_DIR / (_sanitize_for_filename(title) + ".json")
+    if not cache_path.exists():
+        return None
+    try:
+        with open(cache_path) as f:
+            obj = json.load(f)
+        return obj["resolved_title"], obj["markdown"], obj["links"]
+    except (json.JSONDecodeError, KeyError, OSError):
+        return None
+
+
+def _write_cache(input_title: str, resolved_title: str, markdown: str, links: Dict[str, str]) -> None:
+    """Write a fetched page to the cache under both input and resolved titles."""
+    if not DEBUG:
+        return
+    _PAGES_DIR.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps({
+        "resolved_title": resolved_title,
+        "markdown": markdown,
+        "links": links,
+    }, ensure_ascii=False, indent=2)
+
+    input_path = _PAGES_DIR / (_sanitize_for_filename(input_title) + ".json")
+    with open(input_path, "w") as f:
+        f.write(payload)
+
+    resolved_path = _PAGES_DIR / (_sanitize_for_filename(resolved_title) + ".json")
+    if resolved_path != input_path and not resolved_path.exists():
+        with open(resolved_path, "w") as f:
+            f.write(payload)
+
+
+# ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------
 
@@ -278,7 +339,17 @@ class WikiGame(Environment):
 
         Returns (resolved_title, markdown_content, links_dict) where
         links_dict maps normalized titles to canonical titles.
+
+        When DEBUG is True, results are cached to pages/ and served
+        from cache on subsequent requests.
         """
+
+        cached = _read_cache(title)
+        if cached is not None:
+            if DEBUG:
+                print(f"CACHE HIT: {title}")
+            return cached
+
         params = {
             "action": "parse",
             "page": title,
@@ -287,12 +358,23 @@ class WikiGame(Environment):
             "redirects": "true",
             "disabletoc": "true",
         }
-        resp = await self.client.get(WIKIPEDIA_API, params=params)
-        resp.raise_for_status()
-        data = resp.json()
 
-        if "error" in data:
-            raise ValueError(f"Wikipedia API error: {data['error'].get('info', 'unknown')}")
+        import asyncio as _asyncio
+        for attempt in range(20):
+            try:
+                resp = await self.client.get(WIKIPEDIA_API, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+                if "error" in data:
+                    raise ValueError(f"Wikipedia API error: {data['error'].get('info', 'unknown')}")
+                break
+            except Exception as e:
+                if attempt < 19:
+                    wait = min(2 ** attempt, 120) + (time.time() % 1)
+                    print(f"WIKI API ERROR: {title} | {e} | retry in {wait:.1f}s (attempt {attempt+1}/20)")
+                    await _asyncio.sleep(wait)
+                else:
+                    raise
 
         parse = data["parse"]
         resolved_title = parse.get("title", title)
@@ -308,6 +390,10 @@ class WikiGame(Environment):
                 norm = self._normalize_title(canon)
                 if norm not in inline_links:
                     inline_links[norm] = canon
+
+        if DEBUG:
+            print(f"CACHE MISS: {title}")
+        _write_cache(title, resolved_title, markdown, inline_links)
 
         return resolved_title, markdown, inline_links
 
