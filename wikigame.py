@@ -40,7 +40,7 @@ WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
 # ---------------------------------------------------------------------------
 # Debug caching — set to True to cache fetched pages locally in pages/
 # ---------------------------------------------------------------------------
-DEBUG = True
+DEBUG = False
 _PAGES_DIR = ENV_PATH / "pages"
 
 
