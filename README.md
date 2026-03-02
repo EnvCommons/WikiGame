@@ -31,6 +31,8 @@ $$\text{Reward} = -\text{num\_clicks}$$
 - If the agent **fails** (uses all 20 clicks without reaching the target): Reward is $-20$.
 - **Invalid clicks** (link not found on page): No penalty (click not counted), agent may retry.
 
+This reward is normalised as part of group advantage in RL, but if you need to do normalisation *ex ante*, we recommend taking the reward and normalising, e.g. based on linear interpolation from a good and bad baseline score.
+
 We do not use LLM graders for this task.
 
 ## Data
