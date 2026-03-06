@@ -536,7 +536,7 @@ class WikiGame(Environment):
                         f"Path: {' -> '.join(self.visited)}"
                     )
                 )],
-                reward=-self.num_clicks,
+                reward=(20.0-self.num_clicks)/self.num_clicks,
                 finished=True,
             )
 
@@ -551,7 +551,7 @@ class WikiGame(Environment):
                         f"Path: {' -> '.join(self.visited)}"
                     )
                 )],
-                reward=-self.max_clicks,
+                reward=0.0,
                 finished=True,
             )
 
