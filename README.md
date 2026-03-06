@@ -25,7 +25,7 @@ There are two splits: train (1,000 tasks) and test (100 tasks). Tasks are loaded
 
 This is a dense, verifiable reward environment with negative scoring. The reward is based on the negative number of clicks used to reach the target:
 
-$$\text{Reward} = \frac{20-\text{num\_clicks}}{\text{num\_clicks}} $$
+$$\text{Reward} = \frac{20-\text{clicks}}{\text{clicks}} $$
 
 Note if the agent uses all 20 clicks, they receive a reward of $0$. Invalid clicks have no penalty (the click is not counted) and the agent may retry.
 
