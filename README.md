@@ -23,15 +23,11 @@ There are two splits: train (1,000 tasks) and test (100 tasks). Tasks are loaded
 
 ## Reward Structure
 
-This is a dense, verifiable reward environment with negative scoring. The reward is the negative number of clicks used to reach the target:
+This is a dense, verifiable reward environment with negative scoring. The reward is based on the negative number of clicks used to reach the target:
 
-$$\text{Reward} = -\text{num\_clicks}$$
+$$\text{Reward} = \frac{20-\text{num\_clicks}}{\text{num\_clicks}} $$
 
-- If the agent **reaches the target** in $n$ clicks: Reward is $-n$ (fewer clicks = better).
-- If the agent **fails** (uses all 20 clicks without reaching the target): Reward is $-20$.
-- **Invalid clicks** (link not found on page): No penalty (click not counted), agent may retry.
-
-This reward is normalised as part of group advantage in RL, but if you need to do normalisation *ex ante*, we recommend taking the reward and normalising, e.g. based on linear interpolation from a good and bad baseline score.
+Note if the agent uses all 20 clicks, they receive a reward of $0$. Invalid clicks have no penalty (the click is not counted) and the agent may retry.
 
 We do not use LLM graders for this task.
 
