@@ -19,7 +19,7 @@ WikiGame does not require a sandbox. It has minimal compute requirements but req
 
 ## Tasks
 
-There are two splits: train (996 tasks) and test (100 tasks). Tasks are loaded from a `tasks.json` file. Each task specifies a start article and a target article. The agent must navigate from the start to the target by clicking links on each page, within a maximum of 20 clicks.
+There are two splits: train (916 tasks) and test (96 tasks). Tasks are loaded from a `tasks.json` file. Each task specifies a start article and a target article. The agent must navigate from the start to the target by clicking links on each page, within a maximum of 20 clicks.
 
 ## Reward Structure
 
@@ -42,7 +42,7 @@ Because tasks are random article pairs, a stored target title can drift out of s
 This is handled in two places:
 
 - **At runtime** (`wikigame.py`): each session resolves its target against the live Wikipedia API once at setup, following redirects. The win check accepts both the original stored title and the resolved canonical title; a deleted target is flagged via `target_missing` in tool metadata.
-- **Offline** (`audit_tasks.py`): `python audit_tasks.py --check` reports drift across the whole corpus (exit non-zero if any), and `python audit_tasks.py` rewrites `tasks.json` to canonical titles and drops deleted/collapsed pairs (backing the original up to `tasks.json.bak`). This only checks existence/canonicalization, not reachability within the click budget.
+- **Offline** (`audit_tasks.py`): `python audit_tasks.py --check` reports issues across the whole corpus (exit non-zero if any), and `python audit_tasks.py` rewrites `tasks.json` (backing the original up to `tasks.json.bak`). It drops or rewrites pairs that are *provably* unwinnable: deleted pages, redirect/drifted titles (rewritten to canonical), `start == target` collapses, **disambiguation-page targets** (exist but no article ever matches them), **dead-end starts** (zero outgoing links), and **orphan targets** (zero incoming links). The last two make one API call per unique title; pass `--skip-link-checks` for the fast batched-only pass. This guarantees each endpoint exists, is canonical, and has at least one link in/out — it does NOT verify the target is reachable within the 20-click budget (that would need a link-graph crawl and is out of scope).
 
 ## Tools
 
