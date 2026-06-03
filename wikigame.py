@@ -313,6 +313,13 @@ class WikiGame(Environment):
 
         self.current_article: str = self.validated.start
         self.target_article: str = self.validated.target
+        # Accepted normalized forms of the target. The target may have been
+        # stored under an obsolete/redirect title; setup() resolves it to the
+        # canonical title and adds that here so reaching the canonical page
+        # (the title the agent actually sees as a link) counts as a win.
+        self.target_aliases: set[str] = {self._normalize_title(self.validated.target)}
+        self.target_missing: bool = False  # True if the target page no longer exists
+        self._target_resolved: bool = False  # guards one-time live resolution
         self.num_clicks: int = 0
         self.max_clicks: int = 20
         self.visited: List[str] = [self.validated.start]
@@ -333,6 +340,53 @@ class WikiGame(Environment):
     @staticmethod
     def _normalize_title(title: str) -> str:
         return title.strip().replace("_", " ").lower()
+
+    async def _get_json(self, params: Dict[str, str], label: str) -> dict:
+        """GET the Wikipedia API with retry/backoff and return parsed JSON.
+
+        Raises on a persistent failure or an API-level ``error`` payload.
+        *label* is only used for log lines.
+        """
+        import asyncio as _asyncio
+        for attempt in range(20):
+            try:
+                resp = await self.client.get(WIKIPEDIA_API, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+                if "error" in data:
+                    raise ValueError(f"Wikipedia API error: {data['error'].get('info', 'unknown')}")
+                return data
+            except Exception as e:
+                if attempt < 19:
+                    wait = min(2 ** attempt, 120) + (time.time() % 1)
+                    print(f"WIKI API ERROR: {label} | {e} | retry in {wait:.1f}s (attempt {attempt+1}/20)")
+                    await _asyncio.sleep(wait)
+                else:
+                    raise
+        raise RuntimeError("unreachable")  # loop either returns or raises
+
+    async def _resolve_title(self, title: str) -> Tuple[Optional[str], bool]:
+        """Resolve *title* against live Wikipedia, following redirects.
+
+        Returns ``(canonical_title, exists)``. ``canonical_title`` is the
+        post-redirect, normalized-spelling page title Wikipedia reports; it is
+        ``None`` when the page does not exist (``exists`` is then ``False``).
+        Uses the lightweight ``query`` action (no HTML parse).
+        """
+        params = {
+            "action": "query",
+            "titles": title,
+            "redirects": "1",
+            "format": "json",
+        }
+        data = await self._get_json(params, label=f"resolve {title}")
+        pages = data.get("query", {}).get("pages", {})
+        if not pages:
+            return None, False
+        page = next(iter(pages.values()))
+        if "missing" in page or page.get("pageid", 0) < 0:
+            return None, False
+        return page.get("title", title), True
 
     async def _fetch_page(self, title: str) -> Tuple[str, str, Dict[str, str]]:
         """Fetch a Wikipedia page.
@@ -359,22 +413,7 @@ class WikiGame(Environment):
             "disabletoc": "true",
         }
 
-        import asyncio as _asyncio
-        for attempt in range(20):
-            try:
-                resp = await self.client.get(WIKIPEDIA_API, params=params)
-                resp.raise_for_status()
-                data = resp.json()
-                if "error" in data:
-                    raise ValueError(f"Wikipedia API error: {data['error'].get('info', 'unknown')}")
-                break
-            except Exception as e:
-                if attempt < 19:
-                    wait = min(2 ** attempt, 120) + (time.time() % 1)
-                    print(f"WIKI API ERROR: {title} | {e} | retry in {wait:.1f}s (attempt {attempt+1}/20)")
-                    await _asyncio.sleep(wait)
-                else:
-                    raise
+        data = await self._get_json(params, label=title)
 
         parse = data["parse"]
         resolved_title = parse.get("title", title)
@@ -408,9 +447,6 @@ class WikiGame(Environment):
         """Suggest similar link titles for a failed match."""
         all_titles = list(self.current_links.values())
         return get_close_matches(query, all_titles, n=max_suggestions, cutoff=0.4)
-
-    def _titles_match(self, a: str, b: str) -> bool:
-        return self._normalize_title(a) == self._normalize_title(b)
 
     @staticmethod
     def _paginate(content: str, page_size: int = 8000) -> List[str]:
@@ -449,7 +485,36 @@ class WikiGame(Environment):
 
     # -- Environment interface --------------------------------------------
 
+    async def _ensure_target_resolved(self) -> None:
+        """Resolve the target against live Wikipedia exactly once per session.
+
+        Canonicalizes the stored target (following redirects / spelling
+        normalization) so that reaching the canonical page counts as a win, and
+        flags targets whose page no longer exists. Transient API failures are
+        swallowed — we fall back to the originally stored title rather than
+        failing the session.
+        """
+        if self._target_resolved:
+            return
+        self._target_resolved = True
+        try:
+            canonical, exists = await self._resolve_title(self.target_article)
+        except Exception as exc:
+            print(f"TARGET RESOLVE ERROR: {self.target_article} | {exc} | keeping stored title")
+            return
+        if not exists:
+            self.target_missing = True
+            print(f"TARGET MISSING: \"{self.target_article}\" no longer exists on Wikipedia")
+            return
+        if canonical:
+            self.target_aliases.add(self._normalize_title(canonical))
+            self.target_article = canonical
+
+    async def setup(self) -> None:
+        await self._ensure_target_resolved()
+
     async def get_prompt(self) -> List[TextBlock]:
+        await self._ensure_target_resolved()
         resolved, content, links = await self._fetch_page(self.current_article)
         self.current_article = resolved
         self.current_links = links
@@ -522,11 +587,13 @@ class WikiGame(Environment):
             "num_clicks": self.num_clicks,
             "current_article": self.current_article,
             "target_article": self.target_article,
+            "target_missing": self.target_missing,
             "visited": self.visited,
         }
 
-        # Check if target reached
-        if self._titles_match(self.current_article, self.target_article):
+        # Check if target reached (accept the original stored title or the
+        # canonical title resolved at setup — see _ensure_target_resolved).
+        if self._normalize_title(self.current_article) in self.target_aliases:
             return ToolOutput(
                 metadata={**base_metadata, "found_target": True},
                 blocks=[TextBlock(

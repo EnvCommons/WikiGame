@@ -19,7 +19,7 @@ WikiGame does not require a sandbox. It has minimal compute requirements but req
 
 ## Tasks
 
-There are two splits: train (1,000 tasks) and test (100 tasks). Tasks are loaded from a `tasks.json` file. Each task specifies a start article and a target article. The agent must navigate from the start to the target by clicking links on each page, within a maximum of 20 clicks.
+There are two splits: train (996 tasks) and test (100 tasks). Tasks are loaded from a `tasks.json` file. Each task specifies a start article and a target article. The agent must navigate from the start to the target by clicking links on each page, within a maximum of 20 clicks.
 
 ## Reward Structure
 
@@ -34,6 +34,15 @@ We do not use LLM graders for this task.
 ## Data
 
 Tasks are stored in a `tasks.json` file on the OpenReward platform. Article content is fetched live from the Wikipedia API at runtime. Articles are converted from HTML to markdown with inline wiki-links, and paginated into ~8,000 character pages. Sections like "See also", "References", and "External links" are stripped.
+
+### Target validation
+
+Because tasks are random article pairs, a stored target title can drift out of sync with Wikipedia — it may be a redirect/obsolete title (e.g. `Pay to Stay` → `Pay to stay (housing policy)`) or refer to a deleted page. Both make a task unwinnable: the agent only ever sees *canonical* titles as links, so reaching the right page under an old alias would otherwise score 0.
+
+This is handled in two places:
+
+- **At runtime** (`wikigame.py`): each session resolves its target against the live Wikipedia API once at setup, following redirects. The win check accepts both the original stored title and the resolved canonical title; a deleted target is flagged via `target_missing` in tool metadata.
+- **Offline** (`audit_tasks.py`): `python audit_tasks.py --check` reports drift across the whole corpus (exit non-zero if any), and `python audit_tasks.py` rewrites `tasks.json` to canonical titles and drops deleted/collapsed pairs (backing the original up to `tasks.json.bak`). This only checks existence/canonicalization, not reachability within the click budget.
 
 ## Tools
 

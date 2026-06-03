@@ -256,11 +256,6 @@
       "target": "Gilles Frechingues"
     },
     {
-      "id": "hillsdale_vanderburgh_county_indiana_to_florin_motroc",
-      "start": "Hillsdale, Vanderburgh County, Indiana",
-      "target": "Florin Motroc"
-    },
-    {
       "id": "nisse_folklore_to_leopoldo_da_gama",
       "start": "Nisse (folklore)",
       "target": "Leopoldo da Gama"
@@ -336,9 +331,9 @@
       "target": "2009 Libyan Super Cup"
     },
     {
-      "id": "charles_ebden_cricketer_to_f_c_clacton",
+      "id": "charles_ebden_cricketer_to_clacton_town_f_c",
       "start": "Charles Ebden (cricketer)",
-      "target": "F.C. Clacton"
+      "target": "Clacton Town F.C."
     },
     {
       "id": "kohlan_to_shaun_white_skateboarding",
@@ -551,8 +546,8 @@
       "target": "Hipposcarus longiceps"
     },
     {
-      "id": "nama_pusillum_to_york_middle_high_school",
-      "start": "Nama pusillum",
+      "id": "nama_pusilla_to_york_middle_high_school",
+      "start": "Nama pusilla",
       "target": "York Middle/High School"
     },
     {
@@ -1761,11 +1756,6 @@
       "target": "Skjeldal"
     },
     {
-      "id": "miho_komatsu_7_prime_number_to_1879_in_philosophy",
-      "start": "Miho Komatsu 7: Prime Number",
-      "target": "1879 in philosophy"
-    },
-    {
       "id": "indian_trail_north_carolina_to_viktor_laiskodat",
       "start": "Indian Trail, North Carolina",
       "target": "Viktor Laiskodat"
@@ -2504,11 +2494,6 @@
       "id": "m_rti_raitums_to_new_mexico_state_road_570",
       "start": "Mārtiņš Raitums",
       "target": "New Mexico State Road 570"
-    },
-    {
-      "id": "astrothelium_dicoloratum_to_park_records",
-      "start": "Astrothelium dicoloratum",
-      "target": "Park Records"
     },
     {
       "id": "genglou_subdistrict_to_1987_champ_car_season",
@@ -3731,9 +3716,9 @@
       "target": "Brand, Bavaria"
     },
     {
-      "id": "anca_mihaela_rombescu_to_seguin_river_monsters",
+      "id": "anca_mihaela_rombescu_to_san_antonio_river_monsters",
       "start": "Anca Mihaela Rombescu",
-      "target": "Seguin River Monsters"
+      "target": "San Antonio River Monsters"
     },
     {
       "id": "colera_to_xylophagus_gracilis",
@@ -4631,11 +4616,6 @@
       "target": "WRWC"
     },
     {
-      "id": "sam_kiki_to_taekwondo_at_the_2020_summer_paralympics_men_s_75_kg",
-      "start": "Sam Kiki",
-      "target": "Taekwondo at the 2020 Summer Paralympics – Men's 75 kg"
-    },
-    {
       "id": "gerry_sikorski_to_collin_circelli",
       "start": "Gerry Sikorski",
       "target": "Collin Circelli"
@@ -4846,9 +4826,9 @@
       "target": "Gordon Beard"
     },
     {
-      "id": "clap_your_hands_to_pay_to_stay",
+      "id": "clap_your_hands_to_pay_to_stay_housing_policy",
       "start": "Clap Your Hands",
-      "target": "Pay to Stay"
+      "target": "Pay to stay (housing policy)"
     },
     {
       "id": "marcus_hardison_to_dunlap_formation",
@@ -5148,9 +5128,9 @@
       "target": "Topical decongestant"
     },
     {
-      "id": "slick_wrestling_to_nezha_a_t_baba",
+      "id": "slick_wrestling_to_list_of_morocco_women_s_international_footballers",
       "start": "Slick (wrestling)",
-      "target": "Nezha Aït Baba"
+      "target": "List of Morocco women's international footballers"
     },
     {
       "id": "akramzhon_umarov_to_electoral_history_of_bob_dole",
@@ -5323,9 +5303,9 @@
       "target": "Cacozeliana granarium"
     },
     {
-      "id": "sant_orsola_palermo_to_polymorphism_computer_science",
+      "id": "sant_orsola_palermo_to_polymorphism_programming_language_theory",
       "start": "Sant'Orsola, Palermo",
-      "target": "Polymorphism (computer science)"
+      "target": "Polymorphism (programming language theory)"
     },
     {
       "id": "vbox7_to_heartwell",
