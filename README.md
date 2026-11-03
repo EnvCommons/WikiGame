@@ -17,17 +17,21 @@
 
 WikiGame does not require a sandbox. It has minimal compute requirements but requires network access to the Wikipedia API at runtime.
 
+## License
+
+[MIT](https://opensource.org/licenses/MIT).
+
 ## Tasks
 
-There are two splits: train (916 tasks) and test (96 tasks). Tasks are loaded from a `tasks.json` file. Each task specifies a start article and a target article. The agent must navigate from the start to the target by clicking links on each page, within a maximum of 20 clicks.
+There are 1,000 tasks in the `train` split and 100 in `test`. Tasks are loaded from a `tasks.json` file. Each task specifies a start article and a target article. The agent must navigate from the start to the target by clicking links on each page, within a maximum of 20 clicks.
 
 ## Reward Structure
 
-This is a dense, verifiable reward environment with negative scoring. The reward is based on the negative number of clicks used to reach the target:
+This is a sparse, verifiable reward environment. The episode ends when the agent reaches the target or uses its 20th click. Reaching the target gives a reward based on the number of clicks used:
 
 $$\text{Reward} = \frac{20-\text{clicks}}{20} $$
 
-Note if the agent uses all 20 clicks, they receive a reward of $0$. Invalid clicks have no penalty (the click is not counted) and the agent may retry.
+Failing to reach the target within 20 clicks gives a reward of $0$, as does reaching it on the 20th click. Invalid clicks (a link not on the current page) and failed page fetches have no penalty: the click is not counted and the agent may retry.
 
 We do not use LLM graders for this task.
 
@@ -37,12 +41,12 @@ Tasks are stored in a `tasks.json` file on the OpenReward platform. Article cont
 
 ### Target validation
 
-Because tasks are random article pairs, a stored target title can drift out of sync with Wikipedia — it may be a redirect/obsolete title (e.g. `Pay to Stay` → `Pay to stay (housing policy)`) or refer to a deleted page. Both make a task unwinnable: the agent only ever sees *canonical* titles as links, so reaching the right page under an old alias would otherwise score 0.
+Because tasks are random article pairs, a stored target title can drift out of sync with Wikipedia: it may be a redirect/obsolete title (e.g. `Pay to Stay` → `Pay to stay (housing policy)`) or refer to a deleted page. Both make a task unwinnable: the agent only ever sees *canonical* titles as links, so reaching the right page under an old alias would otherwise score 0.
 
 This is handled in two places:
 
 - **At runtime** (`wikigame.py`): each session resolves its target against the live Wikipedia API once at setup, following redirects. The win check accepts both the original stored title and the resolved canonical title; a deleted target is flagged via `target_missing` in tool metadata.
-- **Offline** (`audit_tasks.py`): `python audit_tasks.py --check` reports issues across the whole corpus (exit non-zero if any), and `python audit_tasks.py` rewrites `tasks.json` (backing the original up to `tasks.json.bak`). It drops or rewrites pairs that are *provably* unwinnable: deleted pages, redirect/drifted titles (rewritten to canonical), `start == target` collapses, **disambiguation-page targets** (exist but no article ever matches them), **dead-end starts** (zero outgoing links), and **orphan targets** (zero incoming links). The last two make one API call per unique title; pass `--skip-link-checks` for the fast batched-only pass. This guarantees each endpoint exists, is canonical, and has at least one link in/out — it does NOT verify the target is reachable within the 20-click budget (that would need a link-graph crawl and is out of scope).
+- **Offline** (`audit_tasks.py`): `python audit_tasks.py --check` reports issues across the whole corpus (exit non-zero if any), and `python audit_tasks.py` rewrites `tasks.json` (backing the original up to `tasks.json.bak`). It drops or rewrites pairs that are *provably* unwinnable: deleted pages, redirect/drifted titles (rewritten to canonical), `start == target` collapses, **disambiguation-page targets** (exist but no article ever matches them), **dead-end starts** (zero outgoing links), and **orphan targets** (zero incoming links). The last two make one API call per unique title; pass `--skip-link-checks` for the fast batched-only pass. This guarantees each endpoint exists, is canonical, and has at least one link in/out. It does NOT verify the target is reachable within the 20-click budget (that would need a link-graph crawl and is out of scope).
 
 ## Tools
 
@@ -55,15 +59,9 @@ Agents are given two tools:
 
 WikiGame is a multi-turn environment. Each task may require up to 20 clicks (plus free `view_page` calls) to navigate from start to target. The number of tool calls varies depending on the article distance and agent strategy.
 
-[Statistics on average tool calls here]
-
-## Environment Difficulty
-
-[Statistics on environment difficulty here]
-
 ## Other Environment Requirements
 
-WikiGame requires network access to the Wikipedia API (`https://en.wikipedia.org/w/api.php`) at runtime for fetching article content. The environment includes cached articles (based on past agent runs) to reduce network latency and API costs.
+WikiGame requires network access to the Wikipedia API (`https://en.wikipedia.org/w/api.php`) at runtime for fetching article content. If a cached copy of a page exists in the environment's `pages/` data directory, it is served instead of calling the API. WikiGame needs no secrets.
 
 ## Safety
 
